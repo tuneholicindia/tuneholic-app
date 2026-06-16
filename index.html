@@ -15623,3 +15623,191 @@ console.log('[Block27] Chrome Luxury + stamp card ready');
   console.log('[Block35] Error monitoring active');
 })();
 </script>
+<script>
+/* Block 36 — Write Proxy: route all Supabase REST writes through Edge Function th-write
+   Security: service_role key stays server-side; daily rotating token validates client.
+   Removes x-th-write-key from client entirely.
+   ─────────────────────────────────────────────────────────────────────────────────── */
+(function() {
+  'use strict';
+
+  /* 1. Remove write key from SUPA_HDR — no longer used client-side */
+  if (typeof SUPA_HDR === 'object' && SUPA_HDR) {
+    delete SUPA_HDR['x-th-write-key'];
+  }
+
+  var EDGE_WRITE = 'https://vqaxatmtomngjffilgtc.supabase.co/functions/v1/th-write';
+  var WRITE_SET  = { POST: 1, PATCH: 1, PUT: 1, DELETE: 1 };
+  var _fetch0    = window.fetch;
+
+  /* Daily rotating token = sha256('th_tuneholic_' + PIN + '_' + yyyymmdd) */
+  function _token() {
+    var d   = new Date();
+    var ymd = '' + d.getFullYear() +
+              String(d.getMonth() + 1).padStart(2, '0') +
+              String(d.getDate()).padStart(2, '0');
+    return crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode('th_tuneholic_2606_' + ymd)
+    ).then(function(buf) {
+      return Array.from(new Uint8Array(buf))
+        .map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+  }
+
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    var method = (opts.method || 'GET').toUpperCase();
+    var urlStr = typeof url === 'string' ? url : String(url);
+
+    /* Only intercept Supabase REST writes */
+    if (WRITE_SET[method] && urlStr.indexOf(SUPA_URL + '/rest/v1/') === 0) {
+      var table  = urlStr.replace(SUPA_URL + '/rest/v1/', '').split('?')[0];
+      var query  = urlStr.indexOf('?') >= 0 ? '?' + urlStr.split('?').slice(1).join('?') : '';
+      var hdrs   = opts.headers || {};
+      var prefer = (typeof hdrs.get === 'function')
+        ? (hdrs.get('Prefer') || hdrs.get('prefer') || '')
+        : (hdrs['Prefer'] || hdrs['prefer'] || '');
+
+      return _token().then(function(tok) {
+        var body = opts.body;
+        if (body != null && typeof body !== 'string') {
+          try { body = JSON.stringify(body); } catch(e) { body = String(body); }
+        }
+        return _fetch0(EDGE_WRITE, {
+          method: 'POST',
+          headers: {
+            'apikey':        SUPA_KEY,
+            'Authorization': 'Bearer ' + SUPA_KEY,
+            'Content-Type':  'application/json',
+            'x-admin-auth':  tok,
+            'x-prefer':      prefer,
+          },
+          body: JSON.stringify({
+            table:   table,
+            method:  method,
+            payload: body,
+            query:   query,
+          }),
+        });
+      });
+    }
+
+    return _fetch0.apply(this, arguments);
+  };
+
+  console.log('[Block36] Write proxy active — DB writes via Edge Function, key off-client');
+})();
+</script>
+<script>
+/* Block 37 — Admin Session Expiry: auto-logout after 8 hours of inactivity
+   Stores login timestamp; checks on every tab switch and every 5 minutes.
+   ─────────────────────────────────────────────────────────────────────── */
+(function() {
+  var SESSION_KEY  = 'th_admin_auth';
+  var TS_KEY       = 'th_admin_ts';
+  var MAX_MS       = 8 * 60 * 60 * 1000; /* 8 hours */
+
+  /* Stamp login time whenever session is set */
+  var _origSet = sessionStorage.setItem.bind(sessionStorage);
+  sessionStorage.setItem = function(k, v) {
+    if (k === SESSION_KEY && v === '1') {
+      _origSet(TS_KEY, String(Date.now()));
+    }
+    return _origSet(k, v);
+  };
+
+  function thCheckExpiry() {
+    if (sessionStorage.getItem(SESSION_KEY) !== '1') return;
+    var ts = parseInt(sessionStorage.getItem(TS_KEY) || '0', 10);
+    if (!ts || Date.now() - ts > MAX_MS) {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(TS_KEY);
+      if (typeof showToast === 'function') showToast('⏱ Admin session expired — please re-enter PIN');
+      console.log('[Block37] Admin session expired after 8 h');
+    }
+  }
+
+  /* Check on page load */
+  thCheckExpiry();
+
+  /* Check every 5 minutes */
+  setInterval(thCheckExpiry, 5 * 60 * 1000);
+
+  /* Check on every tab switch */
+  var _origSwitch = window.switchAdminTab;
+  if (typeof _origSwitch === 'function') {
+    window.switchAdminTab = function() {
+      thCheckExpiry();
+      return _origSwitch.apply(this, arguments);
+    };
+  }
+
+  console.log('[Block37] Session expiry (8 h) active');
+})();
+</script>
+<script>
+/* Block 38 — Real Error Alerting: persist JS errors to Supabase error_log table
+   Upgrades Block 35 (console-only) to write every error to DB for visibility.
+   Shows a red badge on the Admin tab if errors occurred this session.
+   ─────────────────────────────────────────────────────────────────────────── */
+(function() {
+  var ERR_COUNT_KEY = 'th_err_count';
+  var sessionErrors = 0;
+
+  function _logToSupabase(msg, source, lineno, stack) {
+    /* Write to error_log via direct anon insert — error_log allows anon INSERT */
+    fetch(SUPA_URL + '/rest/v1/error_log', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        msg:    String(msg).substring(0, 500),
+        source: String(source || '').substring(0, 200),
+        lineno: lineno || 0,
+        stack:  String(stack || '').substring(0, 1000),
+        ua:     navigator.userAgent.substring(0, 200),
+      }),
+    }).catch(function() { /* silent — don't recurse */ });
+  }
+
+  function _showErrBadge() {
+    sessionErrors++;
+    /* Add red badge to Admin nav item if visible */
+    var adminNav = document.querySelector('[data-tab="admin"], #adminTab, .admin-tab-btn');
+    if (adminNav && !adminNav.querySelector('.th-err-badge')) {
+      var badge = document.createElement('span');
+      badge.className = 'th-err-badge';
+      badge.style.cssText =
+        'background:#e05050;color:#fff;border-radius:50%;font-size:.65rem;' +
+        'padding:1px 5px;margin-left:4px;vertical-align:middle';
+      badge.textContent = '!';
+      adminNav.appendChild(badge);
+    }
+  }
+
+  /* Override the onerror from Block 35 to also DB-log */
+  var _prevOnerror = window.onerror;
+  window.onerror = function(msg, source, lineno, colno, err) {
+    _logToSupabase(msg, source, lineno, err && err.stack);
+    _showErrBadge();
+    if (typeof _prevOnerror === 'function') return _prevOnerror(msg, source, lineno, colno, err);
+    return false;
+  };
+
+  var _prevUnhandled = window.onunhandledrejection;
+  window.onunhandledrejection = function(evt) {
+    var reason = evt && evt.reason;
+    var msg = reason ? (reason.message || String(reason)) : 'Unhandled promise rejection';
+    _logToSupabase(msg, '', 0, reason && reason.stack);
+    _showErrBadge();
+    if (typeof _prevUnhandled === 'function') return _prevUnhandled(evt);
+  };
+
+  console.log('[Block38] Error alerting active — JS errors logged to Supabase error_log');
+})();
+</script>
