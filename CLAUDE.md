@@ -13,7 +13,7 @@ Single-file HTML portal: `index.html` (this folder)
 
 ## GitHub
 - Repo: https://github.com/tuneholicindia/tuneholic-app
-- Token: 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 (expires Sep 14 2026)
+- Token: TOKEN_IN_GIT_SAVE_BAT (expires Sep 14 2026) — actual token stored in git-push-now.bat + th-git-push.bat (not committed)
 - Auto-backup: runs nightly at 11 PM via Windows Task Scheduler
 - Manual save: run `git-save.bat`
 - Restore any version: run `git-restore.bat`
