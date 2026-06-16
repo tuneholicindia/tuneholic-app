@@ -12269,6 +12269,7 @@ console.log('[Fix] renderCancelled updated to use Supabase data');
 })();
 </script>
 
+
 <script>
 /* ── AUTH-AWARE WRITE FIX ──
    supaSaveBooking used anon key → RLS blocks writes (only authenticated role can INSERT/UPDATE/DELETE)
@@ -12411,9 +12412,8 @@ console.log('[Fix] renderCancelled updated to use Supabase data');
 
   console.log('[Auth-Write] supaSaveBooking + setGigStatus + deleteBooking — using auth token');
 })();
-</script>
 
-<script>
+
 /* ── Add CHANDRAPAL X SURYANSH to artist list + fix payout dropdown refresh ── */
 
 /* 1. Add to ARTIST_NAMES_ALL */
@@ -12506,9 +12506,8 @@ window.switchAdminTab = function(tab) {
 };
 
 console.log('[Payouts] CHANDRAPAL X SURYANSH added + dropdown fix active');
-</script>
 
-<script>
+
 /* ═══ BLOCK 9 — TUNEHOLIC ARTIST INVOICE + PDF + WHATSAPP ═══ */
 
 /* Load jsPDF + html2canvas */
@@ -12736,9 +12735,8 @@ window.thInvWA=function(){
 })();
 
 console.log('[Block9] Artist Invoice + PDF + WhatsApp loaded');
-</script>
 
-<script>
+
 /* ═══ BLOCK 10 — ARTIST INVOICE: WHITE PRINT-STYLE PDF ═══ */
 
 var TH_LOGO_PRINT = 'data:image/png;base64,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';
@@ -12922,9 +12920,8 @@ window.thInvWA = function(){
 };
 
 console.log('[Block10] White print-style PDF override loaded');
-</script>
 
-<script>
+
 /* ═══ BLOCK 11 — CUSTOM ARTIST INVOICE (not in list) ═══ */
 
 /* Override p2PrintBill: if no artist selected → show custom-artist prompt */
@@ -13114,9 +13111,8 @@ window.thInvPDF = function() {
 };
 
 console.log('[Block11] Custom artist prompt + auto-save loaded');
-</script>
 
-<script>
+
 /* ═══ BLOCK 12 — INVOICE MONTH/YEAR PICKER (any past month) ═══ */
 
 /* Override thLaunchInvoice to include a month/year picker */
@@ -13268,9 +13264,8 @@ window.thReloadGigRows = function(artist) {
 };
 
 console.log('[Block12] Month/year picker for Artist Invoice loaded');
-</script>
 
-<script>
+
 /* ═══ BLOCK 13 — FINAL INVOICE: NEW FORMAT + REMARKS + PDF ═══ */
 
 /* ── Invoice number: [X]-[HHMM]-[DDMMYY] ── */
@@ -13636,9 +13631,8 @@ window.thInvWA=function(){
 };
 
 console.log('[Block13] Final invoice build loaded');
-</script>
 
-<script>
+
 /* ═══ BLOCK 14 — SAVE TO DATABASE CONFIRMATION AFTER PDF ═══ */
 
 /* Override thInvPDF — generate PDF first, then ask to save */
@@ -13777,8 +13771,7 @@ window.thConfirmSaveToDB = function() {
 };
 
 console.log('[Block14] Save-to-DB confirmation loaded');
-</script>
-<script>
+
 /* ═══════════════════════════════════════════════════════════
    BLOCK 15 — Bill Out: All Saved Invoices Panel
    Tab: "📄 Bill Out" — Artists table + Venues table
@@ -14046,8 +14039,7 @@ console.log('[Block14] Save-to-DB confirmation loaded');
 
   console.log('[Block15] Bill Out panel loaded');
 })();
-</script>
-<script>
+
 /* ═══════════════════════════════════════════════════════════
    BLOCK 16 — Embed save-date in remark + patch Bill Out filter
    Overrides: thConfirmSaveToDB, _thBOParse (via thBOLoad patch)
@@ -14152,8 +14144,7 @@ console.log('[Block14] Save-to-DB confirmation loaded');
 
   console.log('[Block16] Save-date embed + Bill Out filter patched');
 })();
-</script>
-<script>
+
 /* ═══════════════════════════════════════════════════════════
    BLOCK 17 — Bill Out: Full standalone fix
    Fixes: (1) missing click listener on injected tab button
@@ -14310,8 +14301,7 @@ console.log('[Block14] Save-to-DB confirmation loaded');
 
   console.log('[Block17] Bill Out fully fixed');
 })();
-</script>
-<script>
+
 /* ═══════════════════════════════════════════════════════════
    BLOCK 18 — Bill Out: show ALL bills by default
    Root cause fix: old bills have no {date} tag + no created_at
@@ -14497,8 +14487,7 @@ console.log('[Block14] Save-to-DB confirmation loaded');
 
   console.log('[Block18] Bill Out: default=all bills, date filter opt-in');
 })();
-</script>
-<script>
+
 /* ═══════════════════════════════════════════════════════════
    BLOCK 19 — th_invoices table: fix save + Bill Out
    Root cause: expenses table has no remark column → all saves failed
@@ -14669,8 +14658,7 @@ console.log('[Block14] Save-to-DB confirmation loaded');
 
   console.log('[Block19] th_invoices save + Bill Out loaded');
 })();
-</script>
-<script>
+
 /* BLOCK 20 — Bill Out: direct fetch from th_invoices, nuclear re-wire */
 (function(){
   var SURL='https://vqaxatmtomngjffilgtc.supabase.co';
@@ -14797,9 +14785,8 @@ console.log('[Block14] Save-to-DB confirmation loaded');
   }
   console.log('[Block20] Bill Out nuclear fix loaded');
 })();
-</script>
 
-<script>
+
 /* BLOCK 21 — Bill Out: hide bill detail rows, show summary cards only */
 (function(){
   var SURL='https://vqaxatmtomngjffilgtc.supabase.co';
@@ -14916,9 +14903,8 @@ console.log('[Block14] Save-to-DB confirmation loaded');
   }
   console.log('[Block21] Bill Out: summary cards only');
 })();
-</script>
 
-<script>
+
 /* BLOCK 22 — Send All WA: sequential one-by-one panel (bypasses popup blocker) */
 window.thBulkWASendAll = function() {
   var rows = document.querySelectorAll('#bwaGigList .th-wa-row[data-wa-url]');
@@ -14986,9 +14972,8 @@ window.thBulkWASendAll = function() {
   document.body.appendChild(overlay);
 };
 console.log('[Block22] WA Send All: sequential panel loaded');
-</script>
 
-<script>
+
 /* BLOCK 23 — Send All WA fix: render() after append + use overlay.querySelector */
 window.thBulkWASendAll = function() {
   var rows = document.querySelectorAll('#bwaGigList .th-wa-row');
@@ -15047,9 +15032,8 @@ window.thBulkWASendAll = function() {
   render();
 };
 console.log('[Block23] WA Send All fixed');
-</script>
 
-<script>
+
 /* Block 24 — New WA message format (Tuneholic style) */
 window.thBulkWABuildMsg = function(b, day, month, year, reachTime) {
   var MN  = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -15070,9 +15054,8 @@ window.thBulkWABuildMsg = function(b, day, month, year, reachTime) {
     '_All the best! \u2014 Tuneholic Team_';
 };
 console.log('[Block24] WA message format updated');
-</script>
 
-<script>
+
 /* Block 25 — Gig Image Card Generator (clipboard copy) */
 
 window.thCopyGigCard = function(b, day, month, year, rt) {
@@ -15198,9 +15181,8 @@ window.thBulkWALoad = function() {
 };
 
 console.log('[Block25] Gig Card generator ready');
-</script>
 
-<script>
+
 /* Block 26 — Send All: auto-copy card to clipboard before opening WA */
 window.thBulkWASendAll = function() {
   var rows = document.querySelectorAll('#bwaGigList .th-wa-row');
@@ -15276,9 +15258,8 @@ window.thBulkWASendAll = function() {
   render();
 };
 console.log('[Block26] Send All + Card auto-copy ready');
-</script>
 
-<script>
+
 /* Block 27 — Chrome Luxury card with rectangular GIG CONFIRMED stamp */
 window.thCopyGigCard = function(b, day, month, year, rt) {
   var MN  = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -15406,9 +15387,8 @@ window.thCopyGigCard = function(b, day, month, year, rt) {
   }, 'image/png');
 };
 console.log('[Block27] Chrome Luxury + stamp card ready');
-</script>
 
-<script>
+
 /* === BLOCK 32 — Chrome Luxury Portrait Card (640x760) FINAL === */
 (function(){
   window.thCopyGigCard = function(b, day, month, year, rt) {
@@ -15518,8 +15498,7 @@ console.log('[Block27] Chrome Luxury + stamp card ready');
   };
   console.log('[Block32] Chrome Luxury portrait 640x760 ready');
 })();
-</script>
-<script>
+
 /* ── BLOCK 33: SUPABASE SINGLE SOURCE OF TRUTH ─────────────────────────────────────────
    All 383 hardcoded bookings migrated to Supabase (2026-06-16).
    1. Clears allBookings[] so Supabase is the only data source.
@@ -15590,8 +15569,7 @@ console.log('[Block27] Chrome Luxury + stamp card ready');
 
   console.log('[Block33] Supabase single source of truth active');
 })();
-</script>
-<script>
+
 /* Block 34 — RLS Write Key: inject x-th-write-key into SUPA_HDR so all writes are authorised */
 (function() {
   if (typeof SUPA_HDR === 'object' && SUPA_HDR) {
@@ -15599,8 +15577,7 @@ console.log('[Block27] Chrome Luxury + stamp card ready');
     console.log('[Block34] RLS write key active — all writes require header');
   }
 })();
-</script>
-<script>
+
 /* Block 35 — Error Monitoring: catch all unhandled JS errors + promise rejections, show toast */
 (function() {
   // Sentry-lite: log to console with structured data + show toast on runtime errors
