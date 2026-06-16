@@ -15519,3 +15519,130 @@ console.log('[Block27] Chrome Luxury + stamp card ready');
   console.log('[Block32] Chrome Luxury portrait 640x760 ready');
 })();
 </script>
+<script>
+/* ── BLOCK 33: SUPABASE SINGLE SOURCE OF TRUTH ─────────────────────────────────────────
+   All 383 hardcoded bookings migrated to Supabase (2026-06-16).
+   1. Clears allBookings[] so Supabase is the only data source.
+   2. Clears localStorage booking delta (no longer needed).
+   3. Replaces supaLoadAll: limit=5000, REPLACE mode (not merge),
+      uuid rows sort before main_ so real data wins dedup.
+   ──────────────────────────────────────────────────────────────────────── */
+(function() {
+  /* 1. Clear hardcoded array immediately */
+  allBookings = [];
+
+  /* 2. Clear localStorage delta — Supabase holds all data now */
+  try { localStorage.removeItem('tuneholic_bookings_delta_v1'); } catch(e) {}
+
+  /* 3. Replace supaLoadAll with REPLACE mode */
+  window.supaLoadAll = function() {
+    return fetch(
+      SUPA_URL + '/rest/v1/bookings?select=*&order=id.asc&limit=5000',
+      { headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY } }
+    )
+    .then(function(r) {
+      if (!r.ok) {
+        return r.text().then(function(t) {
+          throw new Error('HTTP ' + r.status + ': ' + t);
+        });
+      }
+      return r.json();
+    })
+    .then(function(rows) {
+      if (!Array.isArray(rows)) {
+        console.warn('[supaSource] Unexpected response:', rows);
+        if (typeof showToast === 'function') showToast('Data load error');
+        return;
+      }
+      /* Replace entirely — uuid rows come first (id.asc), dedup keeps them */
+      allBookings = rows.map(function(row) {
+        return {
+          id:           row.id,
+          month:        row.month        != null ? Number(row.month)  : undefined,
+          year:         row.year         != null ? Number(row.year)   : undefined,
+          date:         row.date         != null ? Number(row.date)   : undefined,
+          day:          row.day          || '',
+          artist:       row.artist       || '',
+          type:         row.type         || 'SOLO',
+          venue:        row.venue        || '',
+          amount:       Number(row.amount     || 0),
+          artistPay:    Number(row.artist_pay || 0),
+          tax:          Number(row.tax        || 0),
+          genre:        row.genre        || '',
+          insta:        row.insta        || '',
+          slot:         row.slot         || 'Evening',
+          note:         row.note         || '',
+          status:       row.status       || '',
+          cancelRemark: row.cancel_remark || '',
+          cancelled:    row.status === 'cancelled'
+        };
+      });
+      if (typeof dedupeBookings    === 'function') dedupeBookings();
+      if (typeof recomputeStats    === 'function') recomputeStats();
+      if (typeof populateDropdowns === 'function') populateDropdowns();
+      console.log('[supaSource] Loaded ' + rows.length + ' rows → ' + allBookings.length + ' after dedup');
+    })
+    .catch(function(e) {
+      console.error('[supaSource] Load failed:', e && e.message);
+      if (typeof showToast === 'function') showToast('Failed to load bookings — check connection');
+    });
+  };
+
+  console.log('[Block33] Supabase single source of truth active');
+})();
+</script>
+<script>
+/* Block 34 — RLS Write Key: inject x-th-write-key into SUPA_HDR so all writes are authorised */
+(function() {
+  if (typeof SUPA_HDR === 'object' && SUPA_HDR) {
+    SUPA_HDR['x-th-write-key'] = 'th_write_26_secure';
+    console.log('[Block34] RLS write key active — all writes require header');
+  }
+})();
+</script>
+<script>
+/* Block 35 — Error Monitoring: catch all unhandled JS errors + promise rejections, show toast */
+(function() {
+  // Sentry-lite: log to console with structured data + show toast on runtime errors
+  // Replace DSN below with your free Sentry DSN from sentry.io if desired
+  var TH_SENTRY_DSN = '';  // e.g. 'https://xxx@oyyy.ingest.sentry.io/zzz'
+
+  function thCaptureError(msg, source, lineno, colno, err) {
+    var info = '[Error] ' + msg + (source ? ' @ ' + source.split('/').pop() + ':' + lineno : '');
+    console.error('[TH-Monitor]', info, err || '');
+    if (typeof showToast === 'function') {
+      showToast('⚠️ JS Error: ' + String(msg).substring(0, 80));
+    }
+    if (TH_SENTRY_DSN) {
+      try {
+        var payload = {
+          message: msg,
+          level: 'error',
+          platform: 'javascript',
+          tags: { app: 'tuneholic-portal' },
+          extra: { source: source, lineno: lineno, colno: colno, stack: err && err.stack }
+        };
+        fetch(TH_SENTRY_DSN.replace('https://', 'https://') + '/api/store/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(function() {});
+      } catch(e) {}
+    }
+  }
+
+  var _prevOnError = window.onerror;
+  window.onerror = function(msg, src, line, col, err) {
+    thCaptureError(msg, src, line, col, err);
+    return _prevOnError ? _prevOnError(msg, src, line, col, err) : false;
+  };
+
+  window.addEventListener('unhandledrejection', function(ev) {
+    var reason = ev.reason;
+    var msg = reason && reason.message ? reason.message : String(reason);
+    thCaptureError('Unhandled Promise: ' + msg, '', 0, 0, reason);
+  });
+
+  console.log('[Block35] Error monitoring active');
+})();
+</script>
