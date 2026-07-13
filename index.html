@@ -15811,3 +15811,206 @@ console.log('[Block27] Chrome Luxury + stamp card ready');
   console.log('[Block38] Error alerting active — JS errors logged to Supabase error_log');
 })();
 </script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   BLOCK 39 — S168 Step 3: Unpaid Gigs Settlement Panel
+   When admin selects an artist in the Payout tab:
+   - Fetches bookings where artist_paid_at IS NULL
+   - Renders a checkbox list so admin can tick which gigs are covered
+   - "Mark Checked as Paid" → PATCH artist_paid_at = now() via supaPatchBooking
+   - Also hooks thConfirmSaveToDB to settle checked gigs when saving invoice
+   Append-only — no existing code is modified.
+   ═══════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  /* ── State ── */
+  var _unpaidGigs = [];   /* [{id, date, month, year, venue, slot, artist_pay}] */
+  var _panelInjected = false;
+
+  /* ── Inject settlement panel HTML into payout tab ── */
+  function injectPanel(){
+    if(_panelInjected)return;
+    var tab=document.getElementById('tab-payouts');
+    if(!tab)return;
+    /* Insert before the Transaction Ledger div (first child with margin-top:18px after the layout) */
+    var children=tab.children;
+    var target=null;
+    for(var i=0;i<children.length;i++){
+      if((children[i].style&&children[i].style.marginTop==='18px')||
+         (children[i].getAttribute&&(children[i].getAttribute('style')||'').indexOf('margin-top:18px')>=0)){
+        target=children[i];
+        break;
+      }
+    }
+    var panel=document.createElement('div');
+    panel.id='p2UnpaidSection';
+    panel.style.cssText='margin:18px 0;display:none';
+    panel.innerHTML=
+      '<div style="font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">'
+        +'<span>💰 Unpaid Bookings — Tick to Settle</span>'
+        +'<span id="p2UnpaidCount" style="color:var(--muted);font-size:.6rem"></span>'
+      +'</div>'
+      +'<div id="p2UnpaidList" style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;padding-right:4px"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">'
+        +'<button class="btn btn-ghost btn-sm" onclick="window.p2UnpaidSelAll(true)">☑ Select All</button>'
+        +'<button class="btn btn-ghost btn-sm" onclick="window.p2UnpaidSelAll(false)">☐ Deselect All</button>'
+        +'<button class="btn btn-primary btn-sm" style="background:var(--accent2);color:#111" onclick="window.p2MarkUnpaidPaid()">✅ Mark Checked as Paid</button>'
+        +'<span id="p2UnpaidStatus" style="font-size:.65rem;color:var(--muted)"></span>'
+      +'</div>';
+    if(target)tab.insertBefore(panel,target);
+    else tab.appendChild(panel);
+    _panelInjected=true;
+  }
+
+  /* ── Load unpaid gigs for artist ── */
+  function p2LoadUnpaidGigs(artistName){
+    injectPanel();
+    var sec=document.getElementById('p2UnpaidSection');
+    var list=document.getElementById('p2UnpaidList');
+    var cnt=document.getElementById('p2UnpaidCount');
+    var status=document.getElementById('p2UnpaidStatus');
+    if(!sec)return;
+    if(!artistName||!artistName.trim()){
+      sec.style.display='none';
+      _unpaidGigs=[];
+      return;
+    }
+    sec.style.display='block';
+    if(list)list.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:8px">Loading…</div>';
+    if(cnt)cnt.textContent='';
+    if(status)status.textContent='';
+
+    /* Canonical name — p2ArtistSel already stores canonical, but run through canonicalArtist for safety */
+    var canon=typeof canonicalArtist==='function'?canonicalArtist(artistName):artistName.trim().toUpperCase();
+
+    /* Supabase query: artist_paid_at IS NULL, not cancelled, not tbf */
+    var q='bookings?select=id,date,month,year,venue,slot,artist_pay'
+      +'&artist=ilike.'+encodeURIComponent(canon)
+      +'&artist_paid_at=is.null'
+      +'&status=neq.cancelled'
+      +'&status=neq.tbf'
+      +'&order=year.asc,month.asc,date.asc'
+      +'&limit=200';
+
+    supaFetch(q,'GET').then(function(rows){
+      if(!Array.isArray(rows))rows=[];
+      _unpaidGigs=rows;
+      renderUnpaidList();
+    }).catch(function(e){
+      console.error('[Block39] load unpaid failed',e);
+      if(list)list.innerHTML='<div style="font-size:.7rem;color:#e05050;padding:8px">⚠ Load failed — check console</div>';
+    });
+  }
+
+  function renderUnpaidList(){
+    var list=document.getElementById('p2UnpaidList');
+    var cnt=document.getElementById('p2UnpaidCount');
+    if(!list)return;
+    if(!_unpaidGigs.length){
+      list.innerHTML='<div style="font-size:.72rem;color:var(--muted);padding:8px 0">🎉 No unpaid bookings — all settled!</div>';
+      if(cnt)cnt.textContent='0 unpaid';
+      return;
+    }
+    if(cnt)cnt.textContent=_unpaidGigs.length+' unpaid';
+    var MO=['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    list.innerHTML=_unpaidGigs.map(function(g){
+      var pay=g.artist_pay>0?'  ₹'+Number(g.artist_pay).toLocaleString('en-IN'):'';
+      var label=(g.date||'?')+' '+(MO[g.month]||'')+' '+(g.year||'')
+        +'  ·  '+(g.venue||'Unknown')
+        +(g.slot?'  ·  '+g.slot:'')
+        +pay;
+      return '<label style="display:flex;align-items:center;gap:8px;font-size:.72rem;padding:6px 10px;'
+        +'background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;'
+        +'transition:border-color .15s" '
+        +'onmouseover="this.style.borderColor=\'var(--accent2)\'" '
+        +'onmouseout="this.style.borderColor=\'var(--border)\'">'
+        +'<input type="checkbox" class="p2-unpaid-chk" data-bid="'+g.id
+        +'" style="accent-color:var(--accent2);width:14px;height:14px;flex-shrink:0;cursor:pointer">'
+        +'<span style="color:var(--text)">'+label+'</span>'
+        +'</label>';
+    }).join('');
+  }
+
+  window.p2UnpaidSelAll=function(on){
+    document.querySelectorAll('.p2-unpaid-chk').forEach(function(c){c.checked=on;});
+  };
+
+  window.p2MarkUnpaidPaid=function(){
+    var checked=[];
+    document.querySelectorAll('.p2-unpaid-chk:checked').forEach(function(c){
+      if(c.dataset.bid)checked.push(c.dataset.bid);
+    });
+    if(!checked.length){
+      if(typeof showToast==='function')showToast('No bookings selected');
+      return;
+    }
+    if(!confirm('Mark '+checked.length+' booking(s) as paid now?\n\nThis sets artist_paid_at = now() and cannot be undone.'))return;
+    var statusEl=document.getElementById('p2UnpaidStatus');
+    if(statusEl)statusEl.textContent='Saving…';
+    var now=new Date().toISOString();
+    var ops=checked.map(function(id){
+      return (typeof supaPatchBooking==='function'
+        ? supaPatchBooking(id,{artist_paid_at:now})
+        : Promise.resolve()
+      ).catch(function(e){console.error('[Block39] patch failed',id,e);});
+    });
+    Promise.all(ops).then(function(){
+      if(typeof showToast==='function')showToast('✅ '+checked.length+' booking(s) marked as paid');
+      if(statusEl)statusEl.textContent='';
+      /* Refresh unpaid list */
+      var sel=document.getElementById('p2ArtistSel');
+      if(sel&&sel.value)p2LoadUnpaidGigs(sel.value);
+    });
+  };
+
+  /* ── Hook thConfirmSaveToDB: settle checked gigs on invoice save ── */
+  var _origConfirm=null;
+  function hookConfirm(){
+    if(_origConfirm!==null)return; /* already hooked */
+    _origConfirm=window.thConfirmSaveToDB||function(){};
+    window.thConfirmSaveToDB=function(){
+      /* Call the existing Block 19 save first */
+      if(typeof _origConfirm==='function')_origConfirm();
+      /* Also settle any checked unpaid gigs */
+      var checked=[];
+      document.querySelectorAll('.p2-unpaid-chk:checked').forEach(function(c){
+        if(c.dataset.bid)checked.push(c.dataset.bid);
+      });
+      if(!checked.length)return;
+      var now2=new Date().toISOString();
+      var ops2=checked.map(function(id){
+        return (typeof supaPatchBooking==='function'
+          ? supaPatchBooking(id,{artist_paid_at:now2})
+          : Promise.resolve()
+        ).catch(function(e){console.error('[Block39] settle patch failed',id,e);});
+      });
+      Promise.all(ops2).then(function(){
+        if(typeof showToast==='function')showToast('💰 '+checked.length+' gig(s) settled');
+        var sel2=document.getElementById('p2ArtistSel');
+        if(sel2&&sel2.value)p2LoadUnpaidGigs(sel2.value);
+      });
+    };
+  }
+
+  /* ── Hook p2OnArtistChange ── */
+  var _origOnArtist=window.p2OnArtistChange;
+  window.p2OnArtistChange=function(){
+    if(typeof _origOnArtist==='function')_origOnArtist();
+    hookConfirm(); /* lazy hook — Block 19 runs before Block 39 */
+    var sel=document.getElementById('p2ArtistSel');
+    p2LoadUnpaidGigs(sel?sel.value:'');
+  };
+
+  /* ── Also hook p2RenderPayouts to inject panel on tab open ── */
+  var _origRender=window.p2RenderPayouts;
+  window.p2RenderPayouts=function(){
+    if(typeof _origRender==='function')_origRender();
+    injectPanel();
+    hookConfirm();
+  };
+
+  console.log('[Block39] S168 Step 3 — Unpaid gigs settlement panel loaded');
+})();
+</script>
